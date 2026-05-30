@@ -55,6 +55,12 @@
         </button>
       </form>
 
+      {% if role == 'student' %}
+      <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted); text-align: center;">
+        Don't have an account? <a href="/register" style="color: var(--student-color); text-decoration: none; font-weight: 600; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Create Account</a>
+      </div>
+      {% endif %}
+
       <a href="/" class="back-link">
         ← Back to Portal Select
       </a>

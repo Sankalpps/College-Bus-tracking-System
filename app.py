@@ -173,6 +173,38 @@ def logout():
     session.clear()
     return redirect(url_for('portal'))
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        role = 'student'
+        
+        if not username or not password:
+            flash("Username and password are required.", "error")
+            return render_template('register.html')
+            
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return render_template('register.html')
+            
+        with get_db() as conn:
+            existing = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+            if existing:
+                flash("Username already exists.", "error")
+                return render_template('register.html')
+            
+            conn.execute(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                (username, generate_password_hash(password), role)
+            )
+            
+        flash("Registration successful! Please log in.", "success")
+        return redirect(url_for('login_page', role='student'))
+        
+    return render_template('register.html')
+
 @app.route('/student')
 @login_required('student')
 def student():
