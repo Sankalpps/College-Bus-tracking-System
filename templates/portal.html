@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus BusTrack Portal</title>
+  <link rel="stylesheet" href="/static/css/portal.css">
+</head>
+<body>
+
+  <div class="portal-container">
+    
+    <header class="brand-section">
+      <h1 class="brand-title">
+        <span class="brand-icon">🚌</span>
+        CampusBus<em>Track</em>
+      </h1>
+      <p class="brand-subtitle">
+        Welcome to the Campus Live Transit System. Select your destination portal below to log in and get started.
+      </p>
+    </header>
+
+    <main class="portal-grid">
+      
+      <!-- Student Card -->
+      <a href="/login/student" class="portal-card card-student">
+        <div class="card-icon">🎓</div>
+        <h2 class="card-title">Student & Faculty</h2>
+        <p class="card-desc">
+          Track campus buses in real-time, view routes, locate bus stops, and get estimated times of arrival (ETA).
+        </p>
+        <div class="card-action">
+          Student Portal <span>➔</span>
+        </div>
+      </a>
+
+      <!-- Driver Card -->
+      <a href="/login/driver" class="portal-card card-driver">
+        <div class="card-icon">🧑‍✈️</div>
+        <h2 class="card-title">Driver Console</h2>
+        <p class="card-desc">
+          Start trips, broadcast live GPS location tracking, view route progression, and simulate routes.
+        </p>
+        <div class="card-action">
+          Driver Portal <span>➔</span>
+        </div>
+      </a>
+
+      <!-- Admin Card -->
+      <a href="/login/admin" class="portal-card card-admin">
+        <div class="card-icon">🔑</div>
+        <h2 class="card-title">Admin Dashboard</h2>
+        <p class="card-desc">
+          Manage system buses, define routes and stops, assign vehicles, and administer student & driver users.
+        </p>
+        <div class="card-action">
+          Admin Portal <span>➔</span>
+        </div>
+      </a>
+
+    </main>
+
+  </div>
+
+</body>
+</html>

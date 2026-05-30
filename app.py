@@ -1,13 +1,53 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_socketio import SocketIO, emit
 import sqlite3
 import math
 import os
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'campus-bus-tracker-secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# ─────────────────────────────────────────────
+# Authentication Guard Decorator
+# ─────────────────────────────────────────────
+
+def login_required(role=None):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                if request.path.startswith('/api/'):
+                    return jsonify({'error': 'Unauthorized'}), 401
+                if request.path == '/admin':
+                    return redirect(url_for('login_page', role='admin'))
+                elif request.path == '/driver':
+                    return redirect(url_for('login_page', role='driver'))
+                elif request.path == '/student':
+                    return redirect(url_for('login_page', role='student'))
+                return redirect(url_for('portal'))
+            
+            user_role = session.get('role')
+            if role:
+                if role == 'student' and user_role == 'admin':
+                    # Admin can view student live map
+                    pass
+                elif user_role != role:
+                    if request.path.startswith('/api/'):
+                        return jsonify({'error': 'Forbidden'}), 403
+                    if role == 'admin':
+                        return redirect(url_for('login_page', role='admin'))
+                    elif role == 'driver':
+                        return redirect(url_for('login_page', role='driver'))
+                    elif role == 'student':
+                        return redirect(url_for('login_page', role='student'))
+                    return redirect(url_for('portal'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 DB_PATH = 'bus_tracker.db'
 
@@ -40,7 +80,22 @@ def init_db():
             conn.execute('ALTER TABLE trips ADD COLUMN last_reached_stop_order INTEGER DEFAULT 0')
         except sqlite3.OperationalError:
             pass # Already exists
-    print("✅ Database initialised.")
+
+        # Seed default users if users table is empty
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users")
+        if cursor.fetchone()[0] == 0:
+            default_users = [
+                ('admin', generate_password_hash('admin123'), 'admin'),
+                ('driver1', generate_password_hash('driver123'), 'driver'),
+                ('student1', generate_password_hash('student123'), 'student')
+            ]
+            conn.executemany(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                default_users
+            )
+            print("[OK] Default users seeded.")
+    print("[OK] Database initialised.")
 
 # ─────────────────────────────────────────────
 # Haversine distance (km)
@@ -64,18 +119,72 @@ def eta_minutes(distance_km, avg_speed_kmh=20):
 # ─────────────────────────────────────────────
 
 @app.route('/')
-def index():
-    return render_template('student.html')
+def portal():
+    if 'user_id' in session:
+        role = session.get('role')
+        if role == 'admin':
+            return redirect(url_for('admin'))
+        elif role == 'driver':
+            return redirect(url_for('driver'))
+        elif role == 'student':
+            return redirect(url_for('student'))
+    return render_template('portal.html')
+
+@app.route('/login/<role>', methods=['GET'])
+def login_page(role):
+    if role not in ['student', 'driver', 'admin']:
+        return redirect(url_for('portal'))
+    return render_template('login.html', role=role)
+
+@app.route('/login', methods=['POST'])
+def do_login():
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    role = request.form.get('role', '')
+    
+    if not username or not password or not role:
+        flash("Username and password are required.", "error")
+        return redirect(url_for('login_page', role=role or 'student'))
+    
+    with get_db() as conn:
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    
+    if user and check_password_hash(user['password'], password):
+        if user['role'] != role:
+            flash(f"Invalid credentials for {role.capitalize()} portal.", "error")
+            return redirect(url_for('login_page', role=role))
+        
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['role'] = user['role']
+        
+        if role == 'admin':
+            return redirect(url_for('admin'))
+        elif role == 'driver':
+            return redirect(url_for('driver'))
+        else:
+            return redirect(url_for('student'))
+    else:
+        flash("Invalid username or password.", "error")
+        return redirect(url_for('login_page', role=role))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('portal'))
 
 @app.route('/student')
+@login_required('student')
 def student():
     return render_template('student.html')
 
 @app.route('/driver')
+@login_required('driver')
 def driver():
     return render_template('driver.html')
 
 @app.route('/admin')
+@login_required('admin')
 def admin():
     return render_template('admin.html')
 
@@ -84,12 +193,14 @@ def admin():
 # ─────────────────────────────────────────────
 
 @app.route('/api/buses', methods=['GET'])
+@login_required()
 def get_buses():
     with get_db() as conn:
         buses = conn.execute('SELECT * FROM buses').fetchall()
     return jsonify([dict(b) for b in buses])
 
 @app.route('/api/buses', methods=['POST'])
+@login_required('admin')
 def add_bus():
     data = request.get_json()
     with get_db() as conn:
@@ -100,6 +211,7 @@ def add_bus():
     return jsonify({'message': 'Bus added'}), 201
 
 @app.route('/api/buses/<int:bus_id>', methods=['PUT'])
+@login_required('admin')
 def update_bus(bus_id):
     data = request.get_json()
     with get_db() as conn:
@@ -110,6 +222,7 @@ def update_bus(bus_id):
     return jsonify({'message': 'Bus updated'})
 
 @app.route('/api/buses/<int:bus_id>', methods=['DELETE'])
+@login_required('admin')
 def delete_bus(bus_id):
     with get_db() as conn:
         conn.execute('DELETE FROM buses WHERE id=?', (bus_id,))
@@ -120,12 +233,14 @@ def delete_bus(bus_id):
 # ─────────────────────────────────────────────
 
 @app.route('/api/routes', methods=['GET'])
+@login_required()
 def get_routes():
     with get_db() as conn:
         routes = conn.execute('SELECT * FROM routes').fetchall()
     return jsonify([dict(r) for r in routes])
 
 @app.route('/api/routes', methods=['POST'])
+@login_required('admin')
 def add_route():
     data = request.get_json()
     with get_db() as conn:
@@ -136,6 +251,7 @@ def add_route():
     return jsonify({'message': 'Route added'}), 201
 
 @app.route('/api/routes/<int:route_id>', methods=['PUT'])
+@login_required('admin')
 def update_route(route_id):
     data = request.get_json()
     with get_db() as conn:
@@ -146,6 +262,7 @@ def update_route(route_id):
     return jsonify({'message': 'Route updated'})
 
 @app.route('/api/routes/<int:route_id>', methods=['DELETE'])
+@login_required('admin')
 def delete_route(route_id):
     with get_db() as conn:
         conn.execute('DELETE FROM routes WHERE id=?', (route_id,))
@@ -157,6 +274,7 @@ def delete_route(route_id):
 # ─────────────────────────────────────────────
 
 @app.route('/api/stops', methods=['GET'])
+@login_required()
 def get_stops():
     route_id = request.args.get('route_id')
     with get_db() as conn:
@@ -170,6 +288,7 @@ def get_stops():
     return jsonify([dict(s) for s in stops])
 
 @app.route('/api/stops', methods=['POST'])
+@login_required('admin')
 def add_stop():
     data = request.get_json()
     with get_db() as conn:
@@ -180,6 +299,7 @@ def add_stop():
     return jsonify({'message': 'Stop added'}), 201
 
 @app.route('/api/stops/<int:stop_id>', methods=['DELETE'])
+@login_required('admin')
 def delete_stop(stop_id):
     with get_db() as conn:
         conn.execute('DELETE FROM stops WHERE id=?', (stop_id,))
@@ -190,6 +310,7 @@ def delete_stop(stop_id):
 # ─────────────────────────────────────────────
 
 @app.route('/api/assign', methods=['POST'])
+@login_required('admin')
 def assign_bus_route():
     data = request.get_json()
     with get_db() as conn:
@@ -200,6 +321,7 @@ def assign_bus_route():
     return jsonify({'message': 'Assigned'})
 
 @app.route('/api/live', methods=['GET'])
+@login_required()
 def get_live_buses():
     """Return all active buses with their last known positions."""
     with get_db() as conn:
@@ -215,6 +337,7 @@ def get_live_buses():
     return jsonify([dict(b) for b in buses])
 
 @app.route('/api/eta', methods=['GET'])
+@login_required()
 def get_eta():
     """Calculate ETA from bus current position to a stop."""
     bus_id   = request.args.get('bus_id', type=int)
@@ -234,6 +357,48 @@ def get_eta():
     return jsonify({'eta': eta, 'distance_km': round(dist, 2)})
 
 # ─────────────────────────────────────────────
+# REST API – Users (Admin only)
+# ─────────────────────────────────────────────
+
+@app.route('/api/users', methods=['GET'])
+@login_required('admin')
+def get_users():
+    with get_db() as conn:
+        users = conn.execute('SELECT id, username, role, created_at FROM users').fetchall()
+    return jsonify([dict(u) for u in users])
+
+@app.route('/api/users', methods=['POST'])
+@login_required('admin')
+def add_user():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'student')
+    
+    if not username or not password or role not in ['student', 'driver', 'admin']:
+        return jsonify({'error': 'Invalid user data'}), 400
+    
+    with get_db() as conn:
+        existing = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+        if existing:
+            return jsonify({'error': 'Username already exists'}), 400
+        
+        conn.execute(
+            'INSERT INTO users (username, password, role) VALUES (?,?,?)',
+            (username, generate_password_hash(password), role)
+        )
+    return jsonify({'message': 'User added'}), 201
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@login_required('admin')
+def delete_user(user_id):
+    if session.get('user_id') == user_id:
+        return jsonify({'error': 'You cannot delete yourself'}), 400
+    with get_db() as conn:
+        conn.execute('DELETE FROM users WHERE id=?', (user_id,))
+    return jsonify({'message': 'User deleted'})
+
+# ─────────────────────────────────────────────
 # WebSocket events
 # ─────────────────────────────────────────────
 
@@ -248,6 +413,9 @@ def on_disconnect():
 @socketio.on('start_trip')
 def handle_start_trip(data):
     """Driver starts a trip. Creates a trip record."""
+    if session.get('role') != 'driver':
+        print("[ERROR] Unauthorized start_trip socket attempt.")
+        return
     bus_id = data['bus_id']
     with get_db() as conn:
         # Close any existing open trip for this bus
@@ -257,22 +425,28 @@ def handle_start_trip(data):
                      (bus_id, datetime.utcnow().isoformat()))
         conn.execute('UPDATE buses SET status="active" WHERE id=?', (bus_id,))
     emit('trip_started', {'bus_id': bus_id}, broadcast=True)
-    print(f"🚌 Trip started for bus {bus_id}")
+    print(f"[BUS] Trip started for bus {bus_id}")
 
 @socketio.on('stop_trip')
 def handle_stop_trip(data):
     """Driver ends a trip."""
+    if session.get('role') != 'driver':
+        print("[ERROR] Unauthorized stop_trip socket attempt.")
+        return
     bus_id = data['bus_id']
     with get_db() as conn:
         conn.execute('UPDATE trips SET end_time=? WHERE bus_id=? AND end_time IS NULL',
                      (datetime.utcnow().isoformat(), bus_id))
         conn.execute('UPDATE buses SET status="offline" WHERE id=?', (bus_id,))
     emit('trip_stopped', {'bus_id': bus_id}, broadcast=True)
-    print(f"🛑 Trip stopped for bus {bus_id}")
+    print(f"[STOP] Trip stopped for bus {bus_id}")
 
 @socketio.on('location_update')
 def handle_location_update(data):
     """Driver sends GPS coords. We persist and broadcast to all students."""
+    if session.get('role') != 'driver':
+        print("[ERROR] Unauthorized location_update socket attempt.")
+        return
     bus_id = data['bus_id']
     lat    = data['latitude']
     lon    = data['longitude']
@@ -341,4 +515,4 @@ def handle_location_update(data):
 if __name__ == '__main__':
     # Always call init_db to ensure schema is up to date (migrations handled inside)
     init_db()
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

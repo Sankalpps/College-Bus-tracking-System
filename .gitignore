@@ -1,0 +1,12 @@
+bus_tracker.db
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+env/
+.idea/
+.vscode/
+.DS_Store

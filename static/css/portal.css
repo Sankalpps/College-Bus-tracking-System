@@ -1,0 +1,414 @@
+/* ═══════════════════════════════════════════════════════════
+   CAMPUS BUS TRACKER – Portal and Login CSS
+   Aesthetic: Premium dark glassmorphism with dynamic glowing highlights
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg:          #08090d;
+  --bg-gradient: radial-gradient(circle at 50% 50%, #111420 0%, #08090d 100%);
+  --surface:     rgba(22, 26, 35, 0.65);
+  --surface-hover: rgba(30, 36, 50, 0.85);
+  --border:      rgba(42, 48, 69, 0.5);
+  --border-focus: rgba(245, 166, 35, 0.6);
+  --text:        #f3f4f6;
+  --text-muted:  #8b9bb4;
+  --sans:        'DM Sans', sans-serif;
+  --mono:        'Space Mono', monospace;
+  --radius:      16px;
+  
+  /* Harmonized Accent Colors */
+  --student-hsl: 217, 91%, 60%;  /* Dynamic HSL for glow effects */
+  --driver-hsl:  37, 98%, 53%;
+  --admin-hsl:   271, 91%, 65%;
+  
+  --student-color: hsl(var(--student-hsl));
+  --driver-color:  hsl(var(--driver-hsl));
+  --admin-color:   hsl(var(--admin-hsl));
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg-gradient);
+  color: var(--text);
+  font-family: var(--sans);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow-x: hidden;
+  position: relative;
+  padding: 40px 20px;
+}
+
+/* Ambient glow blobs in background */
+body::before, body::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  filter: blur(150px);
+  z-index: -1;
+  opacity: 0.15;
+  pointer-events: none;
+}
+body::before {
+  top: 10%;
+  left: 15%;
+  background: var(--student-color);
+}
+body::after {
+  bottom: 10%;
+  right: 15%;
+  background: var(--driver-color);
+}
+
+.portal-container {
+  max-width: 900px;
+  width: 100%;
+  text-align: center;
+  animation: fadeIn 0.8s ease-out;
+  z-index: 10;
+}
+
+.brand-section {
+  margin-bottom: 50px;
+}
+
+.brand-title {
+  font-family: var(--mono);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.brand-title span.brand-icon {
+  font-size: 46px;
+  animation: pulse 2s infinite ease-in-out;
+}
+.brand-title em {
+  font-style: normal;
+  color: var(--driver-color);
+}
+
+.brand-subtitle {
+  font-size: 15px;
+  color: var(--text-muted);
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── Portal Grid / Cards ──────────────────────────────── */
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.portal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 36px 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle gradient top border overlay on hover */
+.portal-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: transparent;
+  transition: background-color 0.3s;
+}
+
+.portal-card.card-student:hover::before { background: var(--student-color); }
+.portal-card.card-driver:hover::before { background: var(--driver-color); }
+.portal-card.card-admin:hover::before { background: var(--admin-color); }
+
+.card-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  transition: all 0.4s ease;
+}
+
+.portal-card:hover .card-icon {
+  transform: scale(1.1) translateY(-4px);
+}
+
+/* Hover Accent Glows */
+.portal-card.card-student:hover {
+  border-color: rgba(var(--student-hsl), 0.4);
+  box-shadow: 0 12px 30px rgba(var(--student-hsl), 0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+  background: var(--surface-hover);
+  transform: translateY(-8px);
+}
+.portal-card.card-student:hover .card-icon {
+  background: rgba(var(--student-hsl), 0.15);
+  border-color: var(--student-color);
+  box-shadow: 0 0 15px rgba(var(--student-hsl), 0.3);
+}
+
+.portal-card.card-driver:hover {
+  border-color: rgba(var(--driver-hsl), 0.4);
+  box-shadow: 0 12px 30px rgba(var(--driver-hsl), 0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+  background: var(--surface-hover);
+  transform: translateY(-8px);
+}
+.portal-card.card-driver:hover .card-icon {
+  background: rgba(var(--driver-hsl), 0.15);
+  border-color: var(--driver-color);
+  box-shadow: 0 0 15px rgba(var(--driver-hsl), 0.3);
+}
+
+.portal-card.card-admin:hover {
+  border-color: rgba(var(--admin-hsl), 0.4);
+  box-shadow: 0 12px 30px rgba(var(--admin-hsl), 0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+  background: var(--surface-hover);
+  transform: translateY(-8px);
+}
+.portal-card.card-admin:hover .card-icon {
+  background: rgba(var(--admin-hsl), 0.15);
+  border-color: var(--admin-color);
+  box-shadow: 0 0 15px rgba(var(--admin-hsl), 0.3);
+}
+
+.card-title {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+.card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.card-action {
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.8;
+  transition: all 0.3s;
+}
+.portal-card.card-student .card-action { color: var(--student-color); }
+.portal-card.card-driver .card-action { color: var(--driver-color); }
+.portal-card.card-admin .card-action { color: var(--admin-color); }
+
+.portal-card:hover .card-action {
+  opacity: 1;
+  gap: 10px;
+}
+
+/* ── Login Container & Form ────────────────────────────── */
+.login-container {
+  max-width: 420px;
+  width: 100%;
+  animation: slideUp 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+  z-index: 10;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 32px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Accent overlays dynamically assigned in login.html */
+.login-container.student-theme .login-card { border-top: 3px solid var(--student-color); }
+.login-container.driver-theme .login-card { border-top: 3px solid var(--driver-color); }
+.login-container.admin-theme .login-card { border-top: 3px solid var(--admin-color); }
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 11px;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.form-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 12px 14px;
+  width: 100%;
+  transition: all 0.3s;
+}
+
+.form-input:focus {
+  outline: none;
+  background: rgba(255,255,255, 0.05);
+}
+
+.student-theme .form-input:focus { border-color: var(--student-color); box-shadow: 0 0 8px rgba(var(--student-hsl), 0.25); }
+.driver-theme .form-input:focus { border-color: var(--driver-color); box-shadow: 0 0 8px rgba(var(--driver-hsl), 0.25); }
+.admin-theme .form-input:focus { border-color: var(--admin-color); box-shadow: 0 0 8px rgba(var(--admin-hsl), 0.25); }
+
+/* Buttons */
+.btn-submit {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 13px;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: #08090d;
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.student-theme .btn-submit { background: var(--student-color); }
+.student-theme .btn-submit:hover { background: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(var(--student-hsl), 0.35); }
+
+.driver-theme .btn-submit { background: var(--driver-color); }
+.driver-theme .btn-submit:hover { background: #e0951a; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(var(--driver-hsl), 0.35); }
+
+.admin-theme .btn-submit { background: var(--admin-color); }
+.admin-theme .btn-submit:hover { background: #8b5cf6; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(var(--admin-hsl), 0.35); }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-top: 24px;
+  transition: color 0.2s;
+  font-family: var(--mono);
+}
+.back-link:hover {
+  color: var(--text);
+}
+
+/* Flash alerts styling */
+.alert-box {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .portal-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .brand-title {
+    font-size: 28px;
+  }
+}

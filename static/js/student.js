@@ -24,43 +24,48 @@ let selectedBus    = null;
 const feedLimit    = 8;
 
 // ── Socket ─────────────────────────────────────────────────
-const socket = io();
+let socket = null;
+if (typeof io !== 'undefined') {
+  socket = io();
+  
+  socket.on('connect', () => {
+    setConnStatus(true);
+  });
+  socket.on('disconnect', () => {
+    setConnStatus(false);
+  });
 
-socket.on('connect', () => {
-  setConnStatus(true);
-});
-socket.on('disconnect', () => {
-  setConnStatus(false);
-});
+  socket.on('location_update', (data) => {
+    updateBusMarker(data);
+    if (selectedBus && data.bus_id === selectedBus.id) {
+      updateSidebarETA(data.stops);
+      updateStopETAs(data.stops);
+      // Dynamic routing: Update path to start from current location
+      renderRoadRoute(data.stops, { lat: data.latitude, lng: data.longitude });
+    }
+    addFeedItem(`🚌 Bus ${getBusName(data.bus_id)} updated position`);
+  });
 
-socket.on('location_update', (data) => {
-  updateBusMarker(data);
-  if (selectedBus && data.bus_id === selectedBus.id) {
-    updateSidebarETA(data.stops);
-    updateStopETAs(data.stops);
-    // Dynamic routing: Update path to start from current location
-    renderRoadRoute(data.stops, { lat: data.latitude, lng: data.longitude });
-  }
-  addFeedItem(`🚌 Bus ${getBusName(data.bus_id)} updated position`);
-});
+  socket.on('trip_started', (data) => {
+    addFeedItem(`▶ Bus ${getBusName(data.bus_id)} started a trip`, 'success');
+    fetchBuses(); // refresh status
+  });
 
-socket.on('trip_started', (data) => {
-  addFeedItem(`▶ Bus ${getBusName(data.bus_id)} started a trip`, 'success');
-  fetchBuses(); // refresh status
-});
-
-socket.on('trip_stopped', (data) => {
-  addFeedItem(`■ Bus ${getBusName(data.bus_id)} ended trip`, 'warn');
-  removeMarker(data.bus_id);
-  if (selectedBus && data.bus_id === selectedBus.id) {
-    if (routeLine) map.removeControl(routeLine);
-    routeLine = null;
-    if (staticPolyline) staticPolyline.remove();
-    staticPolyline = null;
-    updateInstruction(null);
-  }
-  fetchBuses();
-});
+  socket.on('trip_stopped', (data) => {
+    addFeedItem(`■ Bus ${getBusName(data.bus_id)} ended trip`, 'warn');
+    removeMarker(data.bus_id);
+    if (selectedBus && data.bus_id === selectedBus.id) {
+      if (routeLine) map.removeControl(routeLine);
+      routeLine = null;
+      if (staticPolyline) staticPolyline.remove();
+      staticPolyline = null;
+      updateInstruction(null);
+    }
+    fetchBuses();
+  });
+} else {
+  console.warn('Socket.io not available. Real-time updates will not work.');
+}
 
 // ── Fetch initial data ─────────────────────────────────────
 async function fetchBuses() {

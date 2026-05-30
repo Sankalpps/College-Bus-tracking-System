@@ -11,6 +11,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
     if (tab.dataset.tab === 'assign') loadAssignTab();
     if (tab.dataset.tab === 'stops')  loadStopFilters();
+    if (tab.dataset.tab === 'users')  loadUsersTab();
   });
 });
 
@@ -397,6 +398,98 @@ document.getElementById('assign-btn').addEventListener('click', async () => {
   showToast('✅ Bus assigned to route');
   loadAssignTab();
 });
+
+// ═══════════════════════════════════════════════════════════
+// USERS
+// ═══════════════════════════════════════════════════════════
+
+let users = [];
+
+async function loadUsersTab() {
+  const res = await fetch('/api/users');
+  if (res.status === 401 || res.status === 403) {
+    window.location.href = '/';
+    return;
+  }
+  users = await res.json();
+  renderUserTable();
+}
+
+function renderUserTable() {
+  const tb = document.getElementById('user-tbody');
+  tb.innerHTML = '';
+  if (users.length === 0) {
+    tb.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">No users found.</td></tr>`;
+    return;
+  }
+  users.forEach(u => {
+    const roleBadge = u.role === 'admin' ? 
+      `<span class="badge" style="background:rgba(139,92,246,0.15);color:#c084fc;border:1px solid rgba(139,92,246,0.3)">admin</span>` : 
+      (u.role === 'driver' ? 
+        `<span class="badge" style="background:rgba(245,166,35,0.15);color:var(--amber);border:1px solid rgba(245,166,35,0.3)">driver</span>` : 
+        `<span class="badge" style="background:rgba(96,165,250,0.15);color:var(--blue);border:1px solid rgba(96,165,250,0.3)">student</span>`
+      );
+    
+    tr(tb, `
+      <td>${u.id}</td>
+      <td>${u.username}</td>
+      <td>${roleBadge}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${u.created_at}</td>
+      <td>
+        <button class="btn btn-danger" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    `);
+  });
+}
+
+document.getElementById('btn-add-user').addEventListener('click', () => {
+  document.getElementById('user-username').value = '';
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-role').value = 'student';
+  document.getElementById('user-form').style.display = 'block';
+});
+
+document.getElementById('user-cancel-btn').addEventListener('click', () => {
+  document.getElementById('user-form').style.display = 'none';
+});
+
+document.getElementById('user-save-btn').addEventListener('click', async () => {
+  const username = document.getElementById('user-username').value.trim();
+  const password = document.getElementById('user-password').value;
+  const role     = document.getElementById('user-role').value;
+
+  if (!username || !password) {
+    return alert('Username and password are required.');
+  }
+
+  const body = { username, password, role };
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const data = await res.json();
+  if (res.status === 201) {
+    document.getElementById('user-form').style.display = 'none';
+    showToast('✅ User added successfully');
+    loadUsersTab();
+  } else {
+    alert(data.error || 'Failed to add user');
+  }
+});
+
+async function deleteUser(id) {
+  if (!confirm('Are you sure you want to delete this user?')) return;
+  const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (res.status === 200) {
+    showToast('🗑️ User deleted');
+    loadUsersTab();
+  } else {
+    alert(data.error || 'Failed to delete user');
+  }
+}
 
 // ── Boot ───────────────────────────────────────────────────
 loadBuses();

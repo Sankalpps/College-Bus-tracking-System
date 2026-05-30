@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/static/css/driver.css"/>
+<script src="/static/js/socket.io.min.js"></script>
 </head>
 <body>
 
@@ -16,9 +17,8 @@
     <span class="brand-name">CampusBus<em>Track</em></span>
   </div>
   <nav class="topbar-nav">
-    <a href="/student" class="nav-link">Live Map</a>
-    <a href="/driver"  class="nav-link active">Driver</a>
-    <a href="/admin"   class="nav-link">Admin</a>
+    <span class="nav-link active">Driver Panel</span>
+    <a href="/logout" class="nav-link" style="color: var(--amber);">Logout</a>
   </nav>
   <div class="topbar-status">
     <span class="dot" id="conn-dot"></span>
@@ -101,7 +101,6 @@
 
 </main>
 
-<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <script src="/static/js/driver.js"></script>
 </body>
 </html>

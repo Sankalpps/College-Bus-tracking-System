@@ -31,17 +31,20 @@ const gpsBarFill   = document.getElementById('gps-bar-fill');
 const logList      = document.getElementById('log-list');
 
 // ── Socket ─────────────────────────────────────────────────
-const socket = io();
-
-socket.on('connect', ()    => setConnStatus(true));
-socket.on('disconnect', () => setConnStatus(false));
-
-socket.on('trip_started', (data) => {
-  if (data.bus_id === selectedBusId) log('Trip confirmed started', 'success');
-});
-socket.on('trip_stopped', (data) => {
-  if (data.bus_id === selectedBusId) log('Trip confirmed stopped', 'success');
-});
+let socket = null;
+if (typeof io !== 'undefined') {
+  socket = io();
+  socket.on('connect', ()    => setConnStatus(true));
+  socket.on('disconnect', () => setConnStatus(false));
+  socket.on('trip_started', (data) => {
+    if (data.bus_id === selectedBusId) log('Trip confirmed started', 'success');
+  });
+  socket.on('trip_stopped', (data) => {
+    if (data.bus_id === selectedBusId) log('Trip confirmed stopped', 'success');
+  });
+} else {
+  console.warn('Socket.io not available. Some features will not work.');
+}
 
 // ── Load buses ─────────────────────────────────────────────
 async function fetchBuses() {
@@ -151,7 +154,7 @@ btnStart.addEventListener('click', () => {
     return;
   }
 
-  socket.emit('start_trip', { bus_id: selectedBusId });
+  if (socket) socket.emit('start_trip', { bus_id: selectedBusId });
   startTripUI();
 
   log('Trip started – GPS tracking active', 'success');
@@ -161,7 +164,7 @@ btnStart.addEventListener('click', () => {
 btnStop.addEventListener('click', () => {
   if (!selectedBusId) return;
 
-  socket.emit('stop_trip', { bus_id: selectedBusId });
+  if (socket) socket.emit('stop_trip', { bus_id: selectedBusId });
   tripActive = false;
   if (isSimulating) stopSimulation();
 
@@ -205,7 +208,7 @@ function onGeoError(err) {
 }
 
 function sendLocation(pos) {
-  if (!tripActive || !selectedBusId) return;
+  if (!tripActive || !selectedBusId || !socket) return;
   socket.emit('location_update', {
     bus_id:    selectedBusId,
     latitude:  pos.coords.latitude,
@@ -276,7 +279,7 @@ async function startSimulation() {
   
   // Ensure trip is started
   if (!tripActive) {
-    socket.emit('start_trip', { bus_id: selectedBusId });
+    if (socket) socket.emit('start_trip', { bus_id: selectedBusId });
     startTripUI();
   }
 

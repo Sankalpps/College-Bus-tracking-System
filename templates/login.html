@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Campus BusTrack</title>
+  <link rel="stylesheet" href="/static/css/portal.css">
+</head>
+<body>
+
+  <!-- Set theme dynamic classes based on role -->
+  <div class="login-container {% if role == 'student' %}student-theme{% elif role == 'driver' %}driver-theme{% else %}admin-theme{% endif %}">
+    
+    <div class="login-card">
+      <header class="login-header">
+        <div class="login-header-icon">
+          {% if role == 'student' %}🎓{% elif role == 'driver' %}🧑‍✈️{% else %}🔑{% endif %}
+        </div>
+        <h1 class="login-title">
+          {% if role == 'student' %}Student & Faculty{% elif role == 'driver' %}Driver Console{% else %}Administrator{% endif %}
+        </h1>
+        <p class="login-subtitle">
+          Please enter your credentials to access the dashboard.
+        </p>
+      </header>
+
+      <!-- Flash messages for error reporting -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert-box">
+              <span>⚠️</span>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form action="/login" method="POST">
+        <!-- Hidden input to submit role context -->
+        <input type="hidden" name="role" value="{{ role }}">
+
+        <div class="form-group">
+          <label for="username">Username / ID</label>
+          <input type="text" id="username" name="username" class="form-input" placeholder="e.g. {{ role }}1" required autocomplete="username" autofocus>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn-submit">
+          Log In
+        </button>
+      </form>
+
+      <a href="/" class="back-link">
+        ← Back to Portal Select
+      </a>
+    </div>
+
+  </div>
+
+</body>
+</html>

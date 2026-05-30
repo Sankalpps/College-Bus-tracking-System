@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="/static/css/admin.css"/>
+<script src="/static/js/socket.io.min.js"></script>
 </head>
 <body>
 
@@ -18,8 +19,8 @@
   </div>
   <nav class="topbar-nav">
     <a href="/student" class="nav-link">Live Map</a>
-    <a href="/driver"  class="nav-link">Driver</a>
     <a href="/admin"   class="nav-link active">Admin</a>
+    <a href="/logout"  class="nav-link" style="color: var(--amber);">Logout</a>
   </nav>
 </header>
 
@@ -31,6 +32,7 @@
     <button class="tab"        data-tab="routes">🗺️ Routes</button>
     <button class="tab"        data-tab="stops">📍 Stops</button>
     <button class="tab"        data-tab="assign">🔗 Assign</button>
+    <button class="tab"        data-tab="users">👤 Users</button>
   </div>
 
   <!-- ── BUSES TAB ─────────────────────────────────────── -->
@@ -203,6 +205,47 @@
       <table class="data-table">
         <thead><tr><th>Bus</th><th>Plate</th><th>Status</th><th>Assigned Route</th></tr></thead>
         <tbody id="assign-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── USERS TAB ─────────────────────────────────────── -->
+  <section class="tab-panel" id="tab-users">
+    <div class="panel-header">
+      <h2 class="panel-title">Manage Users</h2>
+      <button class="btn btn-primary" id="btn-add-user">+ Add User</button>
+    </div>
+
+    <div class="form-card" id="user-form" style="display:none">
+      <h3 class="form-title" id="user-form-title">New User</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="user-username" placeholder="e.g. student1" class="styled-input"/>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="user-password" placeholder="••••••••" class="styled-input"/>
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="user-role" class="styled-select">
+            <option value="student">Student/Faculty</option>
+            <option value="driver">Driver</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="user-save-btn">Save</button>
+        <button class="btn btn-ghost"   id="user-cancel-btn">Cancel</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table" id="user-table">
+        <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Created At</th><th>Actions</th></tr></thead>
+        <tbody id="user-tbody"></tbody>
       </table>
     </div>
   </section>

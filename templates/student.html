@@ -19,8 +19,10 @@
   </div>
   <nav class="topbar-nav">
     <a href="/student" class="nav-link active">Live Map</a>
-    <a href="/driver"  class="nav-link">Driver</a>
+    {% if session.get('role') == 'admin' %}
     <a href="/admin"   class="nav-link">Admin</a>
+    {% endif %}
+    <a href="/logout"  class="nav-link" style="color: var(--amber);">Logout</a>
   </nav>
   <div class="topbar-status">
     <span class="dot" id="conn-dot"></span>
@@ -104,7 +106,7 @@
 <!-- ── SCRIPTS ───────────────────────────────────────────── -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="/static/js/socket.io.min.js"></script>
 <script src="/static/js/student.js"></script>
 </body>
 </html>

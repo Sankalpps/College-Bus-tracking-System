@@ -78,3 +78,12 @@ INSERT OR IGNORE INTO buses (id, name, number_plate, capacity, status, route_id)
 (1, 'Bus Alpha',   'KA-01-AB-1234', 52, 'offline', 1),
 (2, 'Bus Beta',    'KA-01-CD-5678', 40, 'offline', 2),
 (3, 'Bus Gamma',   'KA-01-EF-9012', 40, 'offline', 3);
+
+-- ─── Users ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    username    TEXT    NOT NULL UNIQUE,
+    password    TEXT    NOT NULL,                  -- will be hashed
+    role        TEXT    NOT NULL,                  -- 'student' | 'driver' | 'admin'
+    created_at  TEXT    DEFAULT (datetime('now'))
+);
