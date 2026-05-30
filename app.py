@@ -56,13 +56,49 @@ DB_PATH = 'bus_tracker.db'
 # ─────────────────────────────────────────────
 
 def get_db():
+    global DB_PATH
+    if 'VERCEL' in os.environ:
+        import tempfile
+        DB_PATH = os.path.join(tempfile.gettempdir(), 'bus_tracker.db')
+        if not os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.sql')
+            with open(schema_path, 'r') as f:
+                conn.executescript(f.read())
+            
+            # Deduplicate stops
+            conn.execute("""
+                DELETE FROM stops
+                WHERE id NOT IN (
+                    SELECT MIN(id)
+                    FROM stops
+                    GROUP BY route_id, name, stop_order
+                )
+            """)
+            
+            # Seed default users
+            default_users = [
+                ('admin', generate_password_hash('admin123'), 'admin'),
+                ('driver1', generate_password_hash('driver123'), 'driver'),
+                ('student1', generate_password_hash('student123'), 'student')
+            ]
+            conn.executemany(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                default_users
+            )
+            conn.commit()
+            print("[OK] Vercel Database initialized.")
+            return conn
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     with get_db() as conn:
-        with open('schema.sql', 'r') as f:
+        schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema.sql')
+        with open(schema_path, 'r') as f:
             conn.executescript(f.read())
         
         # Deduplicate stops (cleanup for previously duplicated sample data)
