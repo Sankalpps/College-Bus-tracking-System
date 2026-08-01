@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+import traceback
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'campus-bus-tracker-secret'
@@ -481,100 +482,142 @@ def on_disconnect():
 @socketio.on('start_trip')
 def handle_start_trip(data):
     """Driver starts a trip. Creates a trip record."""
-    if session.get('role') != 'driver':
-        print("[ERROR] Unauthorized start_trip socket attempt.")
-        return
-    bus_id = data['bus_id']
-    with get_db() as conn:
-        # Close any existing open trip for this bus
-        conn.execute('UPDATE trips SET end_time=? WHERE bus_id=? AND end_time IS NULL',
-                     (datetime.utcnow().isoformat(), bus_id))
-        conn.execute('INSERT INTO trips (bus_id, start_time, last_reached_stop_order) VALUES (?,?,0)',
-                     (bus_id, datetime.utcnow().isoformat()))
-        conn.execute('UPDATE buses SET status="active" WHERE id=?', (bus_id,))
-    emit('trip_started', {'bus_id': bus_id}, broadcast=True)
-    print(f"[BUS] Trip started for bus {bus_id}")
+    try:
+        if session.get('role') != 'driver':
+            print("[ERROR] Unauthorized start_trip socket attempt.")
+            emit('server_error', {'error': 'unauthorized'}, room=request.sid)
+            return
+
+        bus_id = data.get('bus_id')
+        if not bus_id:
+            emit('server_error', {'error': 'missing_bus_id'}, room=request.sid)
+            return
+
+        with get_db() as conn:
+            # Close any existing open trip for this bus
+            conn.execute('UPDATE trips SET end_time=? WHERE bus_id=? AND end_time IS NULL',
+                         (datetime.utcnow().isoformat(), bus_id))
+            # Try inserting with the newer schema first; fall back if column missing
+            try:
+                conn.execute('INSERT INTO trips (bus_id, start_time, last_reached_stop_order) VALUES (?,?,0)',
+                             (bus_id, datetime.utcnow().isoformat()))
+            except sqlite3.OperationalError:
+                # Older schema without last_reached_stop_order
+                conn.execute('INSERT INTO trips (bus_id, start_time) VALUES (?,?)',
+                             (bus_id, datetime.utcnow().isoformat()))
+
+            conn.execute('UPDATE buses SET status="active" WHERE id=?', (bus_id,))
+
+        emit('trip_started', {'bus_id': bus_id}, broadcast=True)
+        print(f"[BUS] Trip started for bus {bus_id}")
+    except Exception:
+        traceback.print_exc()
+        emit('server_error', {'error': 'internal_error'}, room=request.sid)
 
 @socketio.on('stop_trip')
 def handle_stop_trip(data):
     """Driver ends a trip."""
-    if session.get('role') != 'driver':
-        print("[ERROR] Unauthorized stop_trip socket attempt.")
-        return
-    bus_id = data['bus_id']
-    with get_db() as conn:
-        conn.execute('UPDATE trips SET end_time=? WHERE bus_id=? AND end_time IS NULL',
-                     (datetime.utcnow().isoformat(), bus_id))
-        conn.execute('UPDATE buses SET status="offline" WHERE id=?', (bus_id,))
-    emit('trip_stopped', {'bus_id': bus_id}, broadcast=True)
-    print(f"[STOP] Trip stopped for bus {bus_id}")
+    try:
+        if session.get('role') != 'driver':
+            print("[ERROR] Unauthorized stop_trip socket attempt.")
+            emit('server_error', {'error': 'unauthorized'}, room=request.sid)
+            return
+        bus_id = data.get('bus_id')
+        if not bus_id:
+            emit('server_error', {'error': 'missing_bus_id'}, room=request.sid)
+            return
+
+        with get_db() as conn:
+            conn.execute('UPDATE trips SET end_time=? WHERE bus_id=? AND end_time IS NULL',
+                         (datetime.utcnow().isoformat(), bus_id))
+            conn.execute('UPDATE buses SET status="offline" WHERE id=?', (bus_id,))
+
+        emit('trip_stopped', {'bus_id': bus_id}, broadcast=True)
+        print(f"[STOP] Trip stopped for bus {bus_id}")
+    except Exception:
+        traceback.print_exc()
+        emit('server_error', {'error': 'internal_error'}, room=request.sid)
 
 @socketio.on('location_update')
 def handle_location_update(data):
     """Driver sends GPS coords. We persist and broadcast to all students."""
-    if session.get('role') != 'driver':
-        print("[ERROR] Unauthorized location_update socket attempt.")
-        return
-    bus_id = data['bus_id']
-    lat    = data['latitude']
-    lon    = data['longitude']
-    ts     = datetime.utcnow().isoformat()
-
-    with get_db() as conn:
-        # Get the current active trip
-        trip = conn.execute('SELECT id, last_reached_stop_order FROM trips WHERE bus_id=? AND end_time IS NULL', (bus_id,)).fetchone()
-        if not trip:
+    try:
+        if session.get('role') != 'driver':
+            print("[ERROR] Unauthorized location_update socket attempt.")
+            emit('server_error', {'error': 'unauthorized'}, room=request.sid)
             return
 
-        last_order = trip['last_reached_stop_order'] or 0
+        bus_id = data.get('bus_id')
+        lat    = data.get('latitude')
+        lon    = data.get('longitude')
+        ts     = datetime.utcnow().isoformat()
 
-        # Update position
-        conn.execute(
-            'UPDATE trips SET latitude=?, longitude=?, timestamp=? WHERE id=?',
-            (lat, lon, ts, trip['id'])
-        )
-        
-        # Fetch route stops
-        bus = conn.execute('SELECT route_id FROM buses WHERE id=?', (bus_id,)).fetchone()
-        stops = []
-        if bus and bus['route_id']:
-            raw_stops = conn.execute(
-                'SELECT id, name, latitude, longitude, stop_order FROM stops WHERE route_id=? ORDER BY stop_order',
-                (bus['route_id'],)
-            ).fetchall()
+        if not bus_id or lat is None or lon is None:
+            emit('server_error', {'error': 'invalid_location_payload'}, room=request.sid)
+            return
 
-            new_last_order = last_order
-            for s in raw_stops:
-                # Calculate distance to see if we reached it
-                dist = haversine(lat, lon, s['latitude'], s['longitude'])
-                
-                # If we are within 150m of a stop that is next in sequence, mark it as reached
-                # Use new_last_order + 1 to allow marking multiple stops in one go if they are very close
-                if dist < 0.15 and s['stop_order'] == new_last_order + 1:
-                    new_last_order = s['stop_order']
-                
-                # Only include upcoming stops in the payload
-                if s['stop_order'] > new_last_order:
-                    stops.append({
-                        'id': s['id'],
-                        'name': s['name'],
-                        'latitude': s['latitude'],
-                        'longitude': s['longitude'],
-                        'stop_order': s['stop_order'],
-                        'eta_minutes': eta_minutes(dist)
-                    })
+        with get_db() as conn:
+            # Get the current active trip
+            trip = conn.execute('SELECT id, last_reached_stop_order FROM trips WHERE bus_id=? AND end_time IS NULL', (bus_id,)).fetchone()
+            if not trip:
+                return
+
+            last_order = trip['last_reached_stop_order'] or 0
+
+            # Update position
+            conn.execute(
+                'UPDATE trips SET latitude=?, longitude=?, timestamp=? WHERE id=?',
+                (lat, lon, ts, trip['id'])
+            )
             
-            if new_last_order != last_order:
-                conn.execute('UPDATE trips SET last_reached_stop_order=? WHERE id=?', (new_last_order, trip['id']))
+            # Fetch route stops
+            bus = conn.execute('SELECT route_id FROM buses WHERE id=?', (bus_id,)).fetchone()
+            stops = []
+            if bus and bus['route_id']:
+                raw_stops = conn.execute(
+                    'SELECT id, name, latitude, longitude, stop_order FROM stops WHERE route_id=? ORDER BY stop_order',
+                    (bus['route_id'],)
+                ).fetchall()
 
-    payload = {
-        'bus_id': bus_id,
-        'latitude': lat,
-        'longitude': lon,
-        'timestamp': ts,
-        'stops': stops
-    }
-    emit('location_update', payload, broadcast=True)
+                new_last_order = last_order
+                for s in raw_stops:
+                    # Calculate distance to see if we reached it
+                    dist = haversine(lat, lon, s['latitude'], s['longitude'])
+                    
+                    # If we are within 150m of a stop that is next in sequence, mark it as reached
+                    # Use new_last_order + 1 to allow marking multiple stops in one go if they are very close
+                    if dist < 0.15 and s['stop_order'] == new_last_order + 1:
+                        new_last_order = s['stop_order']
+                    
+                    # Only include upcoming stops in the payload
+                    if s['stop_order'] > new_last_order:
+                        stops.append({
+                            'id': s['id'],
+                            'name': s['name'],
+                            'latitude': s['latitude'],
+                            'longitude': s['longitude'],
+                            'stop_order': s['stop_order'],
+                            'eta_minutes': eta_minutes(dist)
+                        })
+                
+                if new_last_order != last_order:
+                    try:
+                        conn.execute('UPDATE trips SET last_reached_stop_order=? WHERE id=?', (new_last_order, trip['id']))
+                    except sqlite3.OperationalError:
+                        # Older schema may not have this column; ignore
+                        pass
+
+        payload = {
+            'bus_id': bus_id,
+            'latitude': lat,
+            'longitude': lon,
+            'timestamp': ts,
+            'stops': stops
+        }
+        emit('location_update', payload, broadcast=True)
+    except Exception:
+        traceback.print_exc()
+        emit('server_error', {'error': 'internal_error'}, room=request.sid)
 
 # ─────────────────────────────────────────────
 # Entry point
