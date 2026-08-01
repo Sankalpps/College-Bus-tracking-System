@@ -508,7 +508,15 @@ def handle_start_trip(data):
 
             conn.execute('UPDATE buses SET status="active" WHERE id=?', (bus_id,))
 
+        # Emit trip started and updated bus info so clients refresh quickly
         emit('trip_started', {'bus_id': bus_id}, broadcast=True)
+        try:
+            with get_db() as _c:
+                b = _c.execute('SELECT * FROM buses WHERE id=?', (bus_id,)).fetchone()
+                if b:
+                    emit('bus_updated', dict(b), broadcast=True)
+        except Exception:
+            pass
         print(f"[BUS] Trip started for bus {bus_id}")
     except Exception:
         traceback.print_exc()
@@ -532,7 +540,15 @@ def handle_stop_trip(data):
                          (datetime.utcnow().isoformat(), bus_id))
             conn.execute('UPDATE buses SET status="offline" WHERE id=?', (bus_id,))
 
+        # Emit trip stopped and updated bus info so clients refresh quickly
         emit('trip_stopped', {'bus_id': bus_id}, broadcast=True)
+        try:
+            with get_db() as _c:
+                b = _c.execute('SELECT * FROM buses WHERE id=?', (bus_id,)).fetchone()
+                if b:
+                    emit('bus_updated', dict(b), broadcast=True)
+        except Exception:
+            pass
         print(f"[STOP] Trip stopped for bus {bus_id}")
     except Exception:
         traceback.print_exc()
