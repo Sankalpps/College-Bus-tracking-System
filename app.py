@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
 import sqlite3
 import math
 import os
@@ -8,8 +9,17 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import traceback
 
+load_dotenv()
+
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    raise RuntimeError(
+        'SECRET_KEY is not set. Set it in the environment or in a .env file '
+        '(copy .env.example to .env).'
+    )
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'campus-bus-tracker-secret'
+app.config['SECRET_KEY'] = secret_key
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ─────────────────────────────────────────────
@@ -52,6 +62,21 @@ def login_required(role=None):
 
 DB_PATH = 'bus_tracker.db'
 
+def seed_admin(conn):
+    admin_username = os.environ.get('ADMIN_USERNAME')
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    if not admin_username or not admin_password:
+        return
+
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM users')
+    if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+            (admin_username, generate_password_hash(admin_password, method='pbkdf2:sha256'), 'admin')
+        )
+        print("[OK] Admin user seeded.")
+
 # ─────────────────────────────────────────────
 # Database helpers
 # ─────────────────────────────────────────────
@@ -78,16 +103,7 @@ def get_db():
                 )
             """)
             
-            # Seed default users
-            default_users = [
-                ('admin', generate_password_hash('admin123'), 'admin'),
-                ('driver1', generate_password_hash('driver123'), 'driver'),
-                ('student1', generate_password_hash('student123'), 'student')
-            ]
-            conn.executemany(
-                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-                default_users
-            )
+            seed_admin(conn)
             conn.commit()
             print("[OK] Vercel Database initialized.")
             return conn
@@ -118,20 +134,7 @@ def init_db():
         except sqlite3.OperationalError:
             pass # Already exists
 
-        # Seed default users if users table is empty
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users")
-        if cursor.fetchone()[0] == 0:
-            default_users = [
-                ('admin', generate_password_hash('admin123'), 'admin'),
-                ('driver1', generate_password_hash('driver123'), 'driver'),
-                ('student1', generate_password_hash('student123'), 'student')
-            ]
-            conn.executemany(
-                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-                default_users
-            )
-            print("[OK] Default users seeded.")
+        seed_admin(conn)
     print("[OK] Database initialised.")
 
 # ─────────────────────────────────────────────

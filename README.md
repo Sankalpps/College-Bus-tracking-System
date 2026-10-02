@@ -72,7 +72,19 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 4 — Run the app
+### Step 4 — Configure secrets
+```bash
+copy .env.example .env
+```
+
+Generate a `SECRET_KEY` with:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Put the generated key in `.env`, and set `ADMIN_USERNAME` and `ADMIN_PASSWORD` there before the first run. The admin is seeded only when both admin variables are set and the users table is empty.
+
+### Step 5 — Run the app
 ```bash
 python app.py
 ```
