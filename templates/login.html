@@ -42,12 +42,12 @@
 
         <div class="form-group">
           <label for="username">Username / ID</label>
-          <input type="text" id="username" name="username" class="form-input" placeholder="e.g. {{ role }}1" required autocomplete="username" autofocus>
+          <input type="text" id="username" name="username" class="form-input" placeholder="e.g. {{ role }}1" value="{{ login_defaults.get('username', '') }}" required autocomplete="username" autofocus>
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" value="{{ login_defaults.get('password', '') }}" required autocomplete="current-password">
         </div>
 
         <button type="submit" class="btn-submit">

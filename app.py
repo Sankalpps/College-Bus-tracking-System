@@ -62,20 +62,42 @@ def login_required(role=None):
 
 DB_PATH = 'bus_tracker.db'
 
-def seed_admin(conn):
-    admin_username = os.environ.get('ADMIN_USERNAME')
-    admin_password = os.environ.get('ADMIN_PASSWORD')
-    if not admin_username or not admin_password:
-        return
-
+def seed_configured_users(conn):
+    configured_users = [
+        ('ADMIN_USERNAME', 'ADMIN_PASSWORD', 'admin'),
+        ('DRIVER_USERNAME', 'DRIVER_PASSWORD', 'driver'),
+        ('STUDENT_USERNAME', 'STUDENT_PASSWORD', 'student')
+    ]
     cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM users')
-    if cursor.fetchone()[0] == 0:
-        cursor.execute(
-            'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-            (admin_username, generate_password_hash(admin_password, method='pbkdf2:sha256'), 'admin')
-        )
-        print("[OK] Admin user seeded.")
+    for username_key, password_key, role in configured_users:
+        username = os.environ.get(username_key)
+        password = os.environ.get(password_key)
+        if not username or not password:
+            continue
+
+        cursor.execute('SELECT 1 FROM users WHERE username = ?', (username,))
+        if cursor.fetchone() is None:
+            cursor.execute(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                (username, generate_password_hash(password, method='pbkdf2:sha256'), role)
+            )
+            print(f"[OK] {role.title()} user seeded.")
+        else:
+            cursor.execute(
+                'UPDATE users SET password = ?, role = ? WHERE username = ?',
+                (generate_password_hash(password, method='pbkdf2:sha256'), role, username)
+            )
+
+def get_login_defaults(role):
+    if os.environ.get('LOGIN_AUTOFILL', '').lower() != 'true' or 'VERCEL' in os.environ:
+        return {}
+
+    role_prefix = role.upper()
+    username = os.environ.get(f'{role_prefix}_USERNAME')
+    password = os.environ.get(f'{role_prefix}_PASSWORD')
+    if username and password:
+        return {'username': username, 'password': password}
+    return {}
 
 # ─────────────────────────────────────────────
 # Database helpers
@@ -103,7 +125,7 @@ def get_db():
                 )
             """)
             
-            seed_admin(conn)
+            seed_configured_users(conn)
             conn.commit()
             print("[OK] Vercel Database initialized.")
             return conn
@@ -134,7 +156,7 @@ def init_db():
         except sqlite3.OperationalError:
             pass # Already exists
 
-        seed_admin(conn)
+        seed_configured_users(conn)
     print("[OK] Database initialised.")
 
 # ─────────────────────────────────────────────
@@ -174,7 +196,7 @@ def portal():
 def login_page(role):
     if role not in ['student', 'driver', 'admin']:
         return redirect(url_for('portal'))
-    return render_template('login.html', role=role)
+    return render_template('login.html', role=role, login_defaults=get_login_defaults(role))
 
 @app.route('/login', methods=['POST'])
 def do_login():
