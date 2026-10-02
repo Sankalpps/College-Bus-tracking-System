@@ -82,7 +82,7 @@ Generate a `SECRET_KEY` with:
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Put the generated key in `.env`, and set `ADMIN_USERNAME` and `ADMIN_PASSWORD` there before the first run. You may also set `DRIVER_USERNAME`, `DRIVER_PASSWORD`, `STUDENT_USERNAME`, and `STUDENT_PASSWORD` for local test accounts. Set `LOGIN_AUTOFILL=true` to autofill those credentials locally; autofill is disabled on Vercel.
+Put the generated key in `.env`, and set `ADMIN_USERNAME` and `ADMIN_PASSWORD` there before the first run. You may also set `DRIVER_USERNAME`, `DRIVER_PASSWORD`, `STUDENT_USERNAME`, and `STUDENT_PASSWORD` for test accounts. Set `LOGIN_AUTOFILL=true` to autofill those credentials. This exposes passwords in the login page, so leave it `false` for public deployments.
 
 ### Step 5 — Run the app
 ```bash

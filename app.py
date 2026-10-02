@@ -89,7 +89,7 @@ def seed_configured_users(conn):
             )
 
 def get_login_defaults(role):
-    if os.environ.get('LOGIN_AUTOFILL', '').lower() != 'true' or 'VERCEL' in os.environ:
+    if os.environ.get('LOGIN_AUTOFILL', '').lower() != 'true':
         return {}
 
     role_prefix = role.upper()
